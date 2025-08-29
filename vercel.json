@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "name": "blindspot-whisperer",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "@vercel/node@18.x"
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
