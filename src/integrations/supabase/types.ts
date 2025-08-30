@@ -159,6 +159,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_intents: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          payment_intent_id: string
+          status: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_intent_id: string
+          status: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_intent_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -378,11 +417,51 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string
+          id: string
+          payment_intent_id: string | null
+          payment_method: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency: string
+          id?: string
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string
+          id?: string
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_payment_intent_id_fkey"
+            columns: ["payment_intent_id"]
+            isOneToOne: false
+            referencedRelation: "payment_intents"
+            referencedColumns: ["payment_intent_id"]
+          },
+        ]
+      }
     }
     Views: {
       scan_summaries: {
         Row: {
-          blind_spot_score: number | null
           business_type: string | null
           categories_affected: number | null
           completed_at: string | null
@@ -394,34 +473,6 @@ export type Database = {
           status: string | null
           total_blind_spots: number | null
           user_id: string | null
-        }
-        Insert: {
-          blind_spot_score?: number | null
-          business_type?: string | null
-          categories_affected?: never
-          completed_at?: string | null
-          created_at?: string | null
-          critical_blind_spots?: number | null
-          duration_seconds?: number | null
-          id?: string | null
-          persona?: string | null
-          status?: string | null
-          total_blind_spots?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          blind_spot_score?: number | null
-          business_type?: string | null
-          categories_affected?: never
-          completed_at?: string | null
-          created_at?: string | null
-          critical_blind_spots?: number | null
-          duration_seconds?: number | null
-          id?: string | null
-          persona?: string | null
-          status?: string | null
-          total_blind_spots?: number | null
-          user_id?: string | null
         }
         Relationships: []
       }
