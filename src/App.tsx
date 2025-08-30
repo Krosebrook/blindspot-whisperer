@@ -1,8 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, AuthStatus } from './components/AuthProvider'
+import { AppLayout } from './components/layout/AppLayout'
+import { Button } from './components/ui/button'
+import Dashboard from './pages/Dashboard'
+import Results from './pages/Results'
+import Index from './pages/Index'
 import ScanFormComponent from './components/ScanFormComponent'
 import AuthForm from './components/AuthForm'
-import { Button } from './components/ui/button'
 import './App.css'
 
 // Protected Route Component
@@ -36,7 +40,7 @@ function LandingPage() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg"></div>
-              <h1 className="text-2xl font-bold text-gray-900">Blindspot Whisperer</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Contour</h1>
             </div>
             <div className="flex items-center space-x-4">
               <AuthStatus />
@@ -50,10 +54,10 @@ function LandingPage() {
               )}
               {user && (
                 <Button 
-                  onClick={() => window.location.href = '/scan'}
+                  onClick={() => window.location.href = '/dashboard'}
                   className="bg-gradient-to-r from-blue-600 to-purple-600"
                 >
-                  Start Scan
+                  Dashboard
                 </Button>
               )}
             </div>
@@ -76,9 +80,9 @@ function LandingPage() {
             <Button 
               size="lg" 
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-lg px-8 py-3"
-              onClick={() => window.location.href = user ? '/scan' : '/auth'}
+              onClick={() => window.location.href = user ? '/dashboard' : '/auth'}
             >
-              {user ? 'Start Your Scan' : 'Get Started Free'}
+              {user ? 'Go to Dashboard' : 'Get Started Free'}
             </Button>
             <Button 
               size="lg" 
@@ -141,14 +145,14 @@ function AuthPage() {
   const { user } = useAuth()
   
   if (user) {
-    return <Navigate to="/scan" replace />
+    return <Navigate to="/dashboard" replace />
   }
   
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <AuthForm 
         onSuccess={() => {
-          window.location.href = '/scan'
+          window.location.href = '/dashboard'
         }}
       />
     </div>
@@ -191,16 +195,100 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
+          
+          {/* Protected Routes with Layout */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+          </Route>
+          
           <Route 
             path="/scan" 
             element={
               <ProtectedRoute>
-                <ScanPage />
+                <AppLayout />
               </ProtectedRoute>
-            } 
-          />
+            }
+          >
+            <Route index element={<Index />} />
+          </Route>
+          
+          <Route 
+            path="/results" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Results />} />
+          </Route>
+          
+          {/* Placeholder routes for sidebar navigation */}
+          <Route 
+            path="/analytics" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<div className="p-6"><h1>Analytics - Coming Soon</h1></div>} />
+          </Route>
+          
+          <Route 
+            path="/probes" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<div className="p-6"><h1>Probes - Coming Soon</h1></div>} />
+          </Route>
+          
+          <Route 
+            path="/teams" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<div className="p-6"><h1>Teams - Coming Soon</h1></div>} />
+          </Route>
+          
+          <Route 
+            path="/benchmarks" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<div className="p-6"><h1>Benchmarks - Coming Soon</h1></div>} />
+          </Route>
+          
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<div className="p-6"><h1>Settings - Coming Soon</h1></div>} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
