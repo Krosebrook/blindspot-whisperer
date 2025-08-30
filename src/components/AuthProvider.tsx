@@ -99,6 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: metadata
         }
       })
