@@ -6,7 +6,8 @@ import { Label } from './ui/label'
 import { Badge } from './ui/badge'
 import { AlertCircle, Building2, Code, DollarSign, GraduationCap, Rocket, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { supabase, db } from '../lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+import { db } from '@/lib/database'
 
 interface PersonaOption {
   id: 'saas_founder' | 'ecommerce' | 'content_creator' | 'service_business' | 'student' | 'no_coder' | 'enterprise'
