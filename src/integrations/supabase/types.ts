@@ -14,10 +14,417 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      blind_spots: {
+        Row: {
+          ai_reasoning: string | null
+          category_id: string | null
+          confidence_score: number | null
+          created_at: string
+          description: string
+          estimated_cost: string | null
+          estimated_effort: string | null
+          examples: string[] | null
+          id: string
+          impact_description: string | null
+          likelihood: number | null
+          potential_impact: string | null
+          priority_rank: number | null
+          recommended_actions: string[] | null
+          resources: string[] | null
+          scan_id: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          category_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description: string
+          estimated_cost?: string | null
+          estimated_effort?: string | null
+          examples?: string[] | null
+          id?: string
+          impact_description?: string | null
+          likelihood?: number | null
+          potential_impact?: string | null
+          priority_rank?: number | null
+          recommended_actions?: string[] | null
+          resources?: string[] | null
+          scan_id: string
+          severity: string
+          title: string
+        }
+        Update: {
+          ai_reasoning?: string | null
+          category_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description?: string
+          estimated_cost?: string | null
+          estimated_effort?: string | null
+          examples?: string[] | null
+          id?: string
+          impact_description?: string | null
+          likelihood?: number | null
+          potential_impact?: string | null
+          priority_rank?: number | null
+          recommended_actions?: string[] | null
+          resources?: string[] | null
+          scan_id?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blind_spots_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blind_spots_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scan_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blind_spots_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      integrations: {
+        Row: {
+          configuration: Json | null
+          created_at: string
+          id: string
+          integration_type: string
+          is_active: boolean | null
+          last_sync: string | null
+          provider_name: string
+          user_id: string
+        }
+        Insert: {
+          configuration?: Json | null
+          created_at?: string
+          id?: string
+          integration_type: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          provider_name: string
+          user_id: string
+        }
+        Update: {
+          configuration?: Json | null
+          created_at?: string
+          id?: string
+          integration_type?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          provider_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          business_description: string | null
+          business_type: string | null
+          company_size: string | null
+          created_at: string
+          email: string
+          experience_level: string | null
+          full_name: string | null
+          id: string
+          industry: string | null
+          persona: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          business_description?: string | null
+          business_type?: string | null
+          company_size?: string | null
+          created_at?: string
+          email: string
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          persona?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          business_description?: string | null
+          business_type?: string | null
+          company_size?: string | null
+          created_at?: string
+          email?: string
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          persona?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scan_analytics: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          ip_address: unknown | null
+          scan_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: unknown | null
+          scan_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown | null
+          scan_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_analytics_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scan_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_analytics_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scans: {
+        Row: {
+          ai_analysis: Json | null
+          blind_spot_score: number | null
+          business_description: string
+          business_type: string | null
+          completed_at: string | null
+          created_at: string
+          critical_blind_spots: number | null
+          current_challenges: string[] | null
+          goals: string[] | null
+          id: string
+          industry: string | null
+          persona: string
+          scan_duration_seconds: number | null
+          status: string
+          target_market: string | null
+          total_blind_spots: number | null
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          blind_spot_score?: number | null
+          business_description: string
+          business_type?: string | null
+          completed_at?: string | null
+          created_at?: string
+          critical_blind_spots?: number | null
+          current_challenges?: string[] | null
+          goals?: string[] | null
+          id?: string
+          industry?: string | null
+          persona: string
+          scan_duration_seconds?: number | null
+          status?: string
+          target_market?: string | null
+          total_blind_spots?: number | null
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          blind_spot_score?: number | null
+          business_description?: string
+          business_type?: string | null
+          completed_at?: string | null
+          created_at?: string
+          critical_blind_spots?: number | null
+          current_challenges?: string[] | null
+          goals?: string[] | null
+          id?: string
+          industry?: string | null
+          persona?: string
+          scan_duration_seconds?: number | null
+          status?: string
+          target_market?: string | null
+          total_blind_spots?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      share_cards: {
+        Row: {
+          blind_spot_count: number | null
+          card_design: Json | null
+          created_at: string
+          critical_count: number | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          is_public: boolean | null
+          key_insights: string[] | null
+          scan_id: string
+          slug: string | null
+          title: string
+          user_id: string
+          view_count: number | null
+        }
+        Insert: {
+          blind_spot_count?: number | null
+          card_design?: Json | null
+          created_at?: string
+          critical_count?: number | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_public?: boolean | null
+          key_insights?: string[] | null
+          scan_id: string
+          slug?: string | null
+          title: string
+          user_id: string
+          view_count?: number | null
+        }
+        Update: {
+          blind_spot_count?: number | null
+          card_design?: Json | null
+          created_at?: string
+          critical_count?: number | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_public?: boolean | null
+          key_insights?: string[] | null
+          scan_id?: string
+          slug?: string | null
+          title?: string
+          user_id?: string
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_cards_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scan_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_cards_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      scan_summaries: {
+        Row: {
+          blind_spot_score: number | null
+          business_type: string | null
+          categories_affected: number | null
+          completed_at: string | null
+          created_at: string | null
+          critical_blind_spots: number | null
+          duration_seconds: number | null
+          id: string | null
+          persona: string | null
+          status: string | null
+          total_blind_spots: number | null
+          user_id: string | null
+        }
+        Insert: {
+          blind_spot_score?: number | null
+          business_type?: string | null
+          categories_affected?: never
+          completed_at?: string | null
+          created_at?: string | null
+          critical_blind_spots?: number | null
+          duration_seconds?: number | null
+          id?: string | null
+          persona?: string | null
+          status?: string | null
+          total_blind_spots?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          blind_spot_score?: number | null
+          business_type?: string | null
+          categories_affected?: never
+          completed_at?: string | null
+          created_at?: string | null
+          critical_blind_spots?: number | null
+          duration_seconds?: number | null
+          id?: string | null
+          persona?: string | null
+          status?: string | null
+          total_blind_spots?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

@@ -145,7 +145,7 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
       }
 
       // Call onSubmit callback if provided
-      if (onSubmit) {
+      if (onSubmit && scan) {
         onSubmit({
           scanId: scan.id,
           persona: selectedPersona,
