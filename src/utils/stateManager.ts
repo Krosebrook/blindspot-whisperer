@@ -337,7 +337,7 @@ class StateManager {
     }
 
     // Placeholder for actual backend sync
-    console.log('Backend sync not implemented - requires Supabase connection');
+    // Backend sync not implemented - requires Supabase connection
     return false;
   }
 

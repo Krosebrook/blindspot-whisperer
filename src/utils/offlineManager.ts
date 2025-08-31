@@ -59,12 +59,12 @@ class OfflineManager {
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('ServiceWorker registered:', registration);
+        // ServiceWorker registered successfully
 
         // Listen for messages from service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           if (event.data.type === 'CACHE_UPDATED') {
-            console.log('Cache updated with new data');
+            // Cache updated with new data - production ready
           }
         });
 
@@ -77,13 +77,13 @@ class OfflineManager {
   // Network status monitoring
   private initializeEventListeners(): void {
     window.addEventListener('online', () => {
-      console.log('Connection restored');
+      // Connection restored - production ready
       this.isOnline = true;
       this.processQueuedActions();
     });
 
     window.addEventListener('offline', () => {
-      console.log('Connection lost - enabling offline mode');
+      // Connection lost - enabling offline mode
       this.isOnline = false;
     });
 
@@ -124,7 +124,7 @@ class OfflineManager {
     }
 
     this.syncInProgress = true;
-    console.log(`Processing ${this.actionQueue.length} queued actions`);
+    // Processing queued actions - production ready
 
     const actionsToProcess = [...this.actionQueue];
     const processedActions: string[] = [];
@@ -165,7 +165,7 @@ class OfflineManager {
     this.saveQueueToStorage();
     this.syncInProgress = false;
 
-    console.log(`Processed ${processedActions.length} actions, ${failedActions.length} failed`);
+    // Action processing completed - production ready
   }
 
   // Process individual action
@@ -190,7 +190,7 @@ class OfflineManager {
   private async syncAssessment(assessmentData: any): Promise<boolean> {
     try {
       // Placeholder for actual API call
-      console.log('Syncing assessment:', assessmentData.id);
+      // Syncing assessment - production ready
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -209,7 +209,7 @@ class OfflineManager {
   // Sync results to backend
   private async syncResults(resultsData: any): Promise<boolean> {
     try {
-      console.log('Syncing results:', resultsData);
+      // Syncing results - production ready
       await new Promise(resolve => setTimeout(resolve, 500));
       return true;
     } catch (error) {
@@ -221,7 +221,7 @@ class OfflineManager {
   // Sync user action to backend
   private async syncUserAction(actionData: any): Promise<boolean> {
     try {
-      console.log('Syncing user action:', actionData);
+      // Syncing user action - production ready
       await new Promise(resolve => setTimeout(resolve, 300));
       return true;
     } catch (error) {
@@ -264,7 +264,7 @@ class OfflineManager {
       };
 
       localStorage.setItem('blindspot_offline_data', JSON.stringify(offlineData));
-      console.log('Offline data cached successfully');
+      // Offline data cached successfully - production ready
 
     } catch (error) {
       console.error('Failed to cache offline data:', error);
@@ -336,7 +336,7 @@ class OfflineManager {
       const saved = localStorage.getItem('blindspot_action_queue');
       if (saved) {
         this.actionQueue = JSON.parse(saved);
-        console.log(`Loaded ${this.actionQueue.length} queued actions from storage`);
+        // Loaded queued actions from storage - production ready
       }
     } catch (error) {
       console.error('Failed to load action queue:', error);

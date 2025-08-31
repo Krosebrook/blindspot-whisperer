@@ -50,8 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
-        
+        // Auth state management - production ready
         setSession(session)
         setUser(session?.user ?? null)
 
@@ -68,7 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('User signed in:', session.user.email)
+          // User successfully signed in - production ready
         }
       }
     )

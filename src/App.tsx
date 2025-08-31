@@ -180,7 +180,7 @@ function ScanPage() {
       <main className="py-8">
         <ScanFormComponent 
           onSubmit={(data) => {
-            console.log('Scan started:', data)
+            // Production scan submission - remove console logging
             alert(`✅ Scan started successfully!\n\nPersona: ${data.persona}\nScan ID: ${data.scanId}\n\nYour business analysis is now processing. You'll receive detailed insights about potential blind spots and opportunities.`)
           }}
         />

@@ -275,7 +275,7 @@ export const performanceMonitor = {
       end: () => {
         const endTime = performance.now();
         const duration = endTime - startTime;
-        console.log(`${componentName} lazy load took ${duration.toFixed(2)}ms`);
+        // Performance tracking completed
         return duration;
       }
     };
