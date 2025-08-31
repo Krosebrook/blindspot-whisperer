@@ -8,6 +8,7 @@ import { AlertCircle, Building2, Code, DollarSign, GraduationCap, Rocket, Users 
 import { motion } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
 import { db } from '@/lib/database'
+import { SecurityService } from '@/lib/security'
 
 interface PersonaOption {
   id: 'saas_founder' | 'ecommerce' | 'content_creator' | 'service_business' | 'student' | 'no_coder' | 'enterprise'
@@ -100,18 +101,22 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
     e.preventDefault()
     setError('')
     
-    if (!selectedPersona) {
-      setError('Please select a persona that best describes you')
-      return
-    }
+    // Enhanced validation using security service
+    const validation = SecurityService.validateScanInput({
+      persona: selectedPersona,
+      business_description: businessDescription,
+      user_id: 'temp' // Will be validated with actual user ID below
+    })
     
-    if (!businessDescription.trim()) {
-      setError('Please describe your business or project')
+    if (!validation.isValid) {
+      setError(validation.errors[0])
       return
     }
 
-    if (businessDescription.trim().length < 50) {
-      setError('Please provide a more detailed description (at least 50 characters)')
+    // Additional business description validation
+    const descValidation = SecurityService.validateBusinessDescription(businessDescription)
+    if (!descValidation.isValid) {
+      setError(descValidation.errors[0])
       return
     }
 
@@ -127,11 +132,11 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
         return
       }
 
-      // Create scan record
+      // Create scan record with sanitized data
       const scanData = {
         user_id: user.id,
         persona: selectedPersona as any,
-        business_description: businessDescription.trim(),
+        business_description: descValidation.sanitized, // Use sanitized content
         status: 'pending' as const,
       }
 
@@ -260,7 +265,13 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
                   id="business-description"
                   placeholder="Tell us about your business, what you do, your target market, current challenges, and goals. The more detail you provide, the better insights we can give you..."
                   value={businessDescription}
-                  onChange={(e) => setBusinessDescription(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Real-time basic validation
+                    if (value.length <= 2000) {
+                      setBusinessDescription(value)
+                    }
+                  }}
                   className="min-h-[120px] text-base"
                   maxLength={2000}
                 />

@@ -5,6 +5,7 @@ import { Button } from './components/ui/button'
 import Dashboard from './pages/Dashboard'
 import Results from './pages/Results'
 import Index from './pages/Index'
+import Share from './pages/Share'
 import ScanFormComponent from './components/ScanFormComponent'
 import AuthForm from './components/AuthForm'
 import './App.css'
@@ -198,6 +199,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/share/:slug" element={<Share />} />
           
           {/* Protected Routes with Layout */}
           <Route 
