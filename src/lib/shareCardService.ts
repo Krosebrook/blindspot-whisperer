@@ -66,12 +66,27 @@ export class ShareCardService {
    */
   static async getPublicShareCard(slug: string, clientIdentifier?: string): Promise<{ data: any; error: any }> {
     try {
-      // Rate limiting for public access
-      const identifier = clientIdentifier || 'anonymous'
-      if (!SecurityService.checkRateLimit(`share_card_${identifier}`, 20, 60000)) {
-        return {
-          data: null,
-          error: { message: 'Rate limit exceeded. Please try again later.' }
+      // Enhanced rate limiting for public access
+      if (clientIdentifier) {
+        const rateLimitResult = SecurityService.checkRateLimit(
+          clientIdentifier, 
+          20, 
+          300000, // 20 requests per 5 minutes
+          false // not authenticated
+        )
+        if (!rateLimitResult.allowed) {
+          SecurityService.logSecurityEvent('share_card_rate_limited', {
+            clientIdentifier,
+            violations: rateLimitResult.violationCount
+          }, 'medium')
+          
+          return { 
+            data: null, 
+            error: { 
+              message: 'Rate limit exceeded. Please try again later.',
+              resetTime: rateLimitResult.resetTime
+            }
+          }
         }
       }
 

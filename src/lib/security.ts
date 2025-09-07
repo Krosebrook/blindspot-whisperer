@@ -12,10 +12,23 @@ const SENSITIVE_PATTERNS = {
   apiKey: /\b[A-Za-z0-9]{32,}\b/g
 }
 
-// Profanity and inappropriate content filter
+// Enhanced inappropriate content filter
 const INAPPROPRIATE_WORDS = [
-  // Add basic inappropriate words - in production, use a comprehensive library
-  'spam', 'scam', 'fraud', 'hack', 'exploit'
+  'spam', 'scam', 'fraud', 'hack', 'exploit', 'phishing', 'malware', 
+  'clickbait', 'ponzi', 'pyramid', 'mlm', 'get-rich-quick', 'guaranteed-profit',
+  'casino', 'gambling', 'bitcoin-scam', 'crypto-scam', 'investment-scam',
+  'fake-reviews', 'bot-traffic', 'click-farm', 'seo-spam', 'link-farm'
+]
+
+// Advanced spam detection patterns
+const SPAM_INDICATORS = [
+  /(.)\1{8,}/g, // Repeated characters (8+ times)
+  /^[A-Z\s!]{15,}$/g, // Excessive caps
+  /(?:free|click|buy|now|urgent|limited|offer|guaranteed|instant){3,}/gi,
+  /(?:\$|\€|\£|\¥|USD|EUR|GBP|profit|money|cash|earn|income){3,}/gi,
+  /(?:www\.|http|\.com|\.net|\.org){3,}/gi, // Multiple URLs
+  /(?:\d{1,3}[%]){2,}/g, // Multiple percentages
+  /(?:!!|!!){3,}/g, // Excessive punctuation
 ]
 
 interface SanitizationOptions {
@@ -115,18 +128,35 @@ export class SecurityService {
       allowHtml: false
     })
     
-    // Check for spam patterns
-    const spamPatterns = [
-      /(.)\1{10,}/g, // Repeated characters
-      /^[A-Z\s!]{20,}$/g, // All caps
-      /(?:buy|click|free|urgent|limited|offer){3,}/gi // Spam keywords
-    ]
-    
-    spamPatterns.forEach(pattern => {
+    // Enhanced spam detection
+    let spamScore = 0
+    SPAM_INDICATORS.forEach(pattern => {
       if (pattern.test(sanitized)) {
-        errors.push('Content appears to be spam or inappropriate')
+        spamScore++
       }
     })
+    
+    // Additional content quality checks
+    const wordCount = sanitized.split(/\s+/).length
+    const uniqueWords = new Set(sanitized.toLowerCase().split(/\s+/)).size
+    const repetitionRatio = uniqueWords / wordCount
+    
+    if (spamScore >= 2) {
+      errors.push('Content appears to be spam or inappropriate')
+    }
+    
+    if (repetitionRatio < 0.3 && wordCount > 20) {
+      errors.push('Content contains too much repetition')
+    }
+    
+    // Log suspicious content for review
+    if (spamScore >= 1 || repetitionRatio < 0.4) {
+      this.logSecurityEvent('suspicious_content', { 
+        spamScore, 
+        repetitionRatio, 
+        contentLength: sanitized.length 
+      })
+    }
     
     return {
       isValid: errors.length === 0,
@@ -160,29 +190,58 @@ export class SecurityService {
   }
 
   /**
-   * Rate limiting check for public endpoints
+   * Enhanced rate limiting with progressive penalties
    */
-  private static rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+  private static rateLimitStore = new Map<string, { 
+    count: number; 
+    resetTime: number; 
+    violations: number; 
+    lastViolation?: number 
+  }>()
   
-  static checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000): boolean {
+  static checkRateLimit(
+    identifier: string, 
+    maxRequests = 10, 
+    windowMs = 60000,
+    isAuthenticated = false
+  ): { allowed: boolean; resetTime?: number; violationCount?: number } {
     const now = Date.now()
     const entry = this.rateLimitStore.get(identifier)
+    
+    // Adjust limits based on authentication status
+    const adjustedMaxRequests = isAuthenticated ? maxRequests * 2 : maxRequests
     
     if (!entry || now > entry.resetTime) {
       // Reset or create new entry
       this.rateLimitStore.set(identifier, {
         count: 1,
-        resetTime: now + windowMs
+        resetTime: now + windowMs,
+        violations: entry?.violations || 0
       })
-      return true
+      return { allowed: true }
     }
     
-    if (entry.count >= maxRequests) {
-      return false // Rate limit exceeded
+    // Apply progressive penalties for repeat violators
+    const penaltyMultiplier = Math.min(entry.violations + 1, 5)
+    const effectiveLimit = Math.max(1, Math.floor(adjustedMaxRequests / penaltyMultiplier))
+    
+    if (entry.count >= effectiveLimit) {
+      entry.violations++
+      entry.lastViolation = now
+      this.logSecurityEvent('rate_limit_exceeded', { 
+        identifier, 
+        violations: entry.violations,
+        limit: effectiveLimit 
+      })
+      return { 
+        allowed: false, 
+        resetTime: entry.resetTime,
+        violationCount: entry.violations 
+      }
     }
     
     entry.count++
-    return true
+    return { allowed: true }
   }
 
   /**
@@ -228,6 +287,218 @@ export class SecurityService {
       isValid: errors.length === 0,
       errors
     }
+  }
+
+  /**
+   * Security audit logging
+   */
+  private static securityLogs: Array<{
+    timestamp: number;
+    event: string;
+    data: any;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+  }> = []
+
+  static logSecurityEvent(
+    event: string, 
+    data: any, 
+    severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'
+  ): void {
+    const logEntry = {
+      timestamp: Date.now(),
+      event,
+      data,
+      severity
+    }
+    
+    this.securityLogs.push(logEntry)
+    
+    // Keep only last 1000 entries to prevent memory issues
+    if (this.securityLogs.length > 1000) {
+      this.securityLogs = this.securityLogs.slice(-1000)
+    }
+    
+    // Log to console in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`🔒 Security Event [${severity.toUpperCase()}]:`, event, data)
+    }
+    
+    // In production, you could send critical events to monitoring service
+    if (severity === 'critical') {
+      // TODO: Send to monitoring service (e.g., Sentry, DataDog)
+    }
+  }
+
+  /**
+   * Get recent security events for monitoring
+   */
+  static getSecurityLogs(
+    since?: number, 
+    severity?: 'low' | 'medium' | 'high' | 'critical'
+  ): Array<any> {
+    let logs = this.securityLogs
+    
+    if (since) {
+      logs = logs.filter(log => log.timestamp >= since)
+    }
+    
+    if (severity) {
+      logs = logs.filter(log => log.severity === severity)
+    }
+    
+    return logs.slice(-100) // Return max 100 recent logs
+  }
+
+  /**
+   * Advanced business description validation with ML-style scoring
+   */
+  static validateBusinessDescriptionAdvanced(description: string): {
+    isValid: boolean;
+    sanitized: string;
+    errors: string[];
+    qualityScore: number;
+    riskScore: number;
+  } {
+    const basicValidation = this.validateBusinessDescription(description)
+    
+    if (!basicValidation.isValid) {
+      return {
+        ...basicValidation,
+        qualityScore: 0,
+        riskScore: 100
+      }
+    }
+    
+    const sanitized = basicValidation.sanitized
+    const words = sanitized.toLowerCase().split(/\s+/)
+    const wordCount = words.length
+    const uniqueWords = new Set(words).size
+    
+    // Quality scoring
+    let qualityScore = 50 // Base score
+    
+    // Length scoring
+    if (wordCount >= 50 && wordCount <= 300) qualityScore += 20
+    if (wordCount >= 100 && wordCount <= 200) qualityScore += 10
+    
+    // Vocabulary diversity
+    const diversityRatio = uniqueWords / wordCount
+    if (diversityRatio > 0.7) qualityScore += 15
+    if (diversityRatio > 0.5) qualityScore += 10
+    
+    // Business-relevant keywords
+    const businessKeywords = [
+      'customer', 'product', 'service', 'market', 'revenue', 'growth', 
+      'strategy', 'solution', 'value', 'business', 'company', 'industry'
+    ]
+    const keywordMatches = businessKeywords.filter(keyword => 
+      words.includes(keyword)
+    ).length
+    qualityScore += Math.min(keywordMatches * 5, 25)
+    
+    // Risk scoring
+    let riskScore = 0
+    
+    // Spam indicators
+    SPAM_INDICATORS.forEach(pattern => {
+      if (pattern.test(sanitized)) {
+        riskScore += 20
+      }
+    })
+    
+    // Inappropriate content
+    INAPPROPRIATE_WORDS.forEach(word => {
+      if (words.includes(word.toLowerCase())) {
+        riskScore += 25
+      }
+    })
+    
+    // Excessive repetition
+    if (diversityRatio < 0.3) riskScore += 30
+    
+    // Normalize scores
+    qualityScore = Math.min(Math.max(qualityScore, 0), 100)
+    riskScore = Math.min(Math.max(riskScore, 0), 100)
+    
+    // Log quality assessment
+    if (qualityScore < 40 || riskScore > 60) {
+      this.logSecurityEvent('low_quality_content', {
+        qualityScore,
+        riskScore,
+        wordCount,
+        diversityRatio
+      }, riskScore > 80 ? 'high' : 'medium')
+    }
+    
+    return {
+      isValid: basicValidation.isValid && riskScore < 70,
+      sanitized,
+      errors: riskScore >= 70 ? [...basicValidation.errors, 'Content quality too low'] : basicValidation.errors,
+      qualityScore,
+      riskScore
+    }
+  }
+
+  /**
+   * Detect potential security threats in user input
+   */
+  static detectSecurityThreats(input: string): {
+    threats: string[];
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  } {
+    const threats: string[] = []
+    let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low'
+    
+    // SQL injection patterns
+    const sqlPatterns = [
+      /'/gi,
+      /;/gi,
+      /\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER)\b/gi
+    ]
+    
+    sqlPatterns.forEach(pattern => {
+      if (pattern.test(input)) {
+        threats.push('Potential SQL injection attempt')
+        riskLevel = 'high'
+      }
+    })
+    
+    // XSS patterns
+    const xssPatterns = [
+      /<script/gi,
+      /javascript:/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi
+    ]
+    
+    xssPatterns.forEach(pattern => {
+      if (pattern.test(input)) {
+        threats.push('Potential XSS attempt')
+        riskLevel = 'high'
+      }
+    })
+    
+    // Command injection
+    const cmdPatterns = [
+      /(\||&|;|`|\$\()/g
+    ]
+    
+    cmdPatterns.forEach(pattern => {
+      if (pattern.test(input)) {
+        threats.push('Potential command injection')
+        riskLevel = 'critical'
+      }
+    })
+    
+    if (threats.length > 0) {
+      this.logSecurityEvent('security_threat_detected', {
+        threats,
+        riskLevel,
+        inputLength: input.length
+      }, riskLevel)
+    }
+    
+    return { threats, riskLevel }
   }
 }
 

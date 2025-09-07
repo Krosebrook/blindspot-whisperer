@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Results from './pages/Results'
 import Index from './pages/Index'
 import Share from './pages/Share'
+import Security from './pages/Security'
 import ScanFormComponent from './components/ScanFormComponent'
 import AuthForm from './components/AuthForm'
 import './App.css'
@@ -199,7 +200,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/share/:slug" element={<Share />} />
+          <Route path="/security" element={<Security />} />
           
           {/* Protected Routes with Layout */}
           <Route 
@@ -289,6 +290,17 @@ function App() {
             }
           >
             <Route index element={<div className="p-6"><h1>Settings - Coming Soon</h1></div>} />
+          </Route>
+          
+          <Route 
+            path="/security" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Security />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

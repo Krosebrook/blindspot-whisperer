@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
 import { db } from '@/lib/database'
 import { SecurityService } from '@/lib/security'
+import { AuditLogger } from '@/lib/auditLogger'
 
 interface PersonaOption {
   id: 'saas_founder' | 'ecommerce' | 'content_creator' | 'service_business' | 'student' | 'no_coder' | 'enterprise'
@@ -101,7 +102,21 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
     e.preventDefault()
     setError('')
     
-    // Enhanced validation using security service
+    // Enhanced security validation
+    const advancedValidation = SecurityService.validateBusinessDescriptionAdvanced(businessDescription)
+    if (!advancedValidation.isValid) {
+      setError(`Input validation failed: ${advancedValidation.errors.join(', ')}`)
+      return
+    }
+
+    // Security threat detection
+    const threatAnalysis = SecurityService.detectSecurityThreats(businessDescription)
+    if (threatAnalysis.riskLevel === 'critical' || threatAnalysis.riskLevel === 'high') {
+      setError(`Security check failed: ${threatAnalysis.threats.join(', ')}`)
+      return
+    }
+
+    // Validate scan input
     const validation = SecurityService.validateScanInput({
       persona: selectedPersona,
       business_description: businessDescription,
@@ -110,13 +125,6 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
     
     if (!validation.isValid) {
       setError(validation.errors[0])
-      return
-    }
-
-    // Additional business description validation
-    const descValidation = SecurityService.validateBusinessDescription(businessDescription)
-    if (!descValidation.isValid) {
-      setError(descValidation.errors[0])
       return
     }
 
@@ -132,11 +140,19 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
         return
       }
 
+      // Log the scan attempt for security monitoring
+      await AuditLogger.trackUserAction('scan_initiated', {
+        persona: selectedPersona,
+        contentLength: businessDescription.length,
+        qualityScore: advancedValidation.qualityScore,
+        riskScore: advancedValidation.riskScore
+      })
+
       // Create scan record with sanitized data
       const scanData = {
         user_id: user.id,
         persona: selectedPersona as any,
-        business_description: descValidation.sanitized, // Use sanitized content
+        business_description: advancedValidation.sanitized, // Use enhanced sanitized content
         status: 'pending' as const,
       }
 
@@ -148,6 +164,13 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
         setIsLoading(false)
         return
       }
+
+      // Track successful scan creation
+      await AuditLogger.trackUserAction('scan_created', {
+        scanId: scan.id,
+        persona: selectedPersona,
+        qualityScore: advancedValidation.qualityScore
+      })
 
       // Call onSubmit callback if provided
       if (onSubmit && scan) {
