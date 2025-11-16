@@ -1,13 +1,14 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { AlertCircle, Eye, EyeOff, Mail, Lock } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { AlertCircle, Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from './AuthProvider'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
+import { useBehavioralAnalytics } from '@/hooks/useBehavioralAnalytics'
 
 interface AuthFormProps {
   mode?: 'signin' | 'signup'
@@ -32,8 +33,23 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
   const captchaRef = useRef<HCaptcha>(null)
 
   const { signIn, signUp } = useAuth()
+  const { 
+    isTracking, 
+    botScore, 
+    startTracking, 
+    stopTracking, 
+    getCurrentScore 
+  } = useBehavioralAnalytics()
   
   const captchaSiteKey = import.meta.env.VITE_CAPTCHA_SITE_KEY
+
+  // Start behavioral tracking when component mounts
+  useEffect(() => {
+    startTracking()
+    return () => {
+      stopTracking()
+    }
+  }, [])
 
   // Check failed attempts from localStorage on email change
   const checkFailedAttempts = (checkEmail: string) => {
@@ -90,6 +106,23 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    // Get real-time bot score
+    const currentScore = getCurrentScore()
+    console.log('[Behavioral Analytics] Bot Score:', currentScore)
+
+    // If bot score is high, force CAPTCHA even on first attempt
+    if (currentScore && currentScore.recommendation === 'challenge' && !showCaptcha) {
+      setShowCaptcha(true)
+      setError(`Unusual interaction pattern detected. Please complete verification. (Bot Score: ${currentScore.score}/100)`)
+      return
+    }
+
+    // If bot score is very high, block immediately
+    if (currentScore && currentScore.recommendation === 'block') {
+      setError('Suspicious activity detected. Please contact support if you believe this is an error.')
+      return
+    }
 
     // Validation
     if (!email || !password) {
@@ -237,6 +270,35 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
                 className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg"
               >
                 <p className="text-sm text-green-800">{success}</p>
+              </motion.div>
+            )}
+
+            {/* Bot Score Indicator (development only) */}
+            {process.env.NODE_ENV === 'development' && botScore && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mb-4 p-3 rounded-lg border ${
+                  botScore.recommendation === 'block' 
+                    ? 'bg-red-50 border-red-200' 
+                    : botScore.recommendation === 'challenge'
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : 'bg-green-50 border-green-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    Bot Score: {botScore.score}/100 (Confidence: {botScore.confidence}%)
+                  </span>
+                </div>
+                {botScore.triggers.length > 0 && (
+                  <ul className="text-xs space-y-1">
+                    {botScore.triggers.map((trigger, idx) => (
+                      <li key={idx}>• {trigger}</li>
+                    ))}
+                  </ul>
+                )}
               </motion.div>
             )}
 
