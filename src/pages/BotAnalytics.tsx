@@ -6,13 +6,18 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Activity, AlertTriangle, CheckCircle, XCircle, TrendingUp, Settings, Database } from 'lucide-react'
+import { Activity, AlertTriangle, CheckCircle, XCircle, TrendingUp, Settings, Database, Zap, Bell, TestTube2 } from 'lucide-react'
 import { botAnalyticsService, type BotAttempt, type ThresholdConfig } from '@/lib/botAnalyticsService'
+import { alertService } from '@/lib/alertService'
+import { ExportMenu } from '@/components/ExportMenu'
+import { AlertConfiguration } from '@/components/AlertConfiguration'
+import { ABTestManager } from '@/components/ABTestManager'
 import { toast } from 'sonner'
 
 export default function BotAnalytics() {
   const [attempts, setAttempts] = useState<BotAttempt[]>([])
   const [thresholds, setThresholds] = useState<ThresholdConfig>(botAnalyticsService.getThresholds())
+  const [autoTuneRecommendation, setAutoTuneRecommendation] = useState(botAnalyticsService.getThresholdRecommendations())
   const [stats, setStats] = useState({
     total: 0,
     allowed: 0,
@@ -39,6 +44,21 @@ export default function BotAnalytics() {
     const falsePositives = allAttempts.filter(a => a.isFalsePositive).length
 
     setStats({ total, allowed, challenged, blocked, avgScore, falsePositives })
+    
+    // Update auto-tune recommendation
+    setAutoTuneRecommendation(botAnalyticsService.getThresholdRecommendations())
+    
+    // Check for high false positive rate alert
+    if (total > 20) {
+      const fpRate = (falsePositives / total) * 100
+      if (fpRate > alertService.getRules().HIGH_FALSE_POSITIVE_RATE.threshold) {
+        alertService.trigger(
+          'HIGH_FALSE_POSITIVE_RATE',
+          `False positive rate is ${fpRate.toFixed(1)}% (threshold: ${alertService.getRules().HIGH_FALSE_POSITIVE_RATE.threshold}%)`,
+          'warning'
+        )
+      }
+    }
   }
 
   const handleThresholdChange = (key: 'challenge' | 'block', value: number[]) => {
@@ -48,6 +68,7 @@ export default function BotAnalytics() {
 
   const saveThresholds = () => {
     botAnalyticsService.updateThresholds(thresholds)
+    setAutoTuneRecommendation(botAnalyticsService.getThresholdRecommendations())
     toast.success('Thresholds updated successfully')
   }
 
@@ -55,7 +76,17 @@ export default function BotAnalytics() {
     const defaultThresholds = { challenge: 35, block: 60 }
     setThresholds(defaultThresholds)
     botAnalyticsService.updateThresholds(defaultThresholds)
+    setAutoTuneRecommendation(botAnalyticsService.getThresholdRecommendations())
     toast.success('Thresholds reset to defaults')
+  }
+
+  const applyAutoTune = () => {
+    if (!autoTuneRecommendation) return
+    
+    setThresholds(autoTuneRecommendation.suggestedThresholds)
+    botAnalyticsService.updateThresholds(autoTuneRecommendation.suggestedThresholds)
+    setAutoTuneRecommendation(null)
+    toast.success('Auto-tune applied successfully')
   }
 
   const markFalsePositive = (id: string, isFalsePositive: boolean) => {
@@ -171,18 +202,30 @@ export default function BotAnalytics() {
         </div>
 
         <Tabs defaultValue="charts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="charts">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Visualizations
+              Charts
             </TabsTrigger>
             <TabsTrigger value="thresholds">
               <Settings className="h-4 w-4 mr-2" />
-              Threshold Tuning
+              Thresholds
+            </TabsTrigger>
+            <TabsTrigger value="autotune">
+              <Zap className="h-4 w-4 mr-2" />
+              Auto-Tune
+            </TabsTrigger>
+            <TabsTrigger value="alerts">
+              <Bell className="h-4 w-4 mr-2" />
+              Alerts
+            </TabsTrigger>
+            <TabsTrigger value="abtests">
+              <TestTube2 className="h-4 w-4 mr-2" />
+              A/B Tests
             </TabsTrigger>
             <TabsTrigger value="attempts">
               <Activity className="h-4 w-4 mr-2" />
-              Attempt Log
+              Attempts
             </TabsTrigger>
           </TabsList>
 
@@ -274,6 +317,84 @@ export default function BotAnalytics() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Auto-Tune Tab */}
+          <TabsContent value="autotune" className="space-y-6 mt-6">
+            {autoTuneRecommendation ? (
+              <Card className="border-yellow-500/50 bg-yellow-500/5">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-5 w-5 text-yellow-500" />
+                        Auto-Tune Recommendation
+                      </CardTitle>
+                      <CardDescription className="mt-2">
+                        {autoTuneRecommendation.reason}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary">
+                      {autoTuneRecommendation.confidence.toFixed(0)}% confidence
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium mb-2">Current Thresholds</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Challenge:</span>
+                          <span className="font-medium">{thresholds.challenge}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Block:</span>
+                          <span className="font-medium">{thresholds.block}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">Recommended Thresholds</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Challenge:</span>
+                          <span className="font-medium text-green-500">
+                            {autoTuneRecommendation.suggestedThresholds.challenge}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Block:</span>
+                          <span className="font-medium text-green-500">
+                            {autoTuneRecommendation.suggestedThresholds.block}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <Button onClick={applyAutoTune} className="w-full">
+                    Apply Recommended Thresholds
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <p>No tuning recommendations at this time</p>
+                  <p className="text-sm mt-1">Thresholds appear optimal based on current data</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Alerts Tab */}
+          <TabsContent value="alerts" className="mt-6">
+            <AlertConfiguration />
+          </TabsContent>
+
+          {/* A/B Tests Tab */}
+          <TabsContent value="abtests" className="mt-6">
+            <ABTestManager />
           </TabsContent>
 
           {/* Threshold Tuning Tab */}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { abTestService } from '@/lib/abTestService'
 
 interface BehavioralData {
   mouseMovements: number
@@ -278,7 +279,7 @@ export function useBehavioralAnalytics() {
     const score = calculateBotScore()
     setBotScore(score)
     
-    // Record to analytics (import at top if needed)
+    // Record to analytics and A/B test
     if (typeof window !== 'undefined' && score) {
       import('@/lib/botAnalyticsService').then(({ botAnalyticsService }) => {
         botAnalyticsService.recordAttempt(
@@ -288,6 +289,22 @@ export function useBehavioralAnalytics() {
           score.recommendation
         )
       })
+
+      // Record to A/B test if active
+      const activeTest = abTestService.getActiveTest()
+      if (activeTest) {
+        const assignment = abTestService.assignVariant(activeTest.id)
+        if (assignment) {
+          abTestService.recordResult(
+            activeTest.id,
+            assignment.variant,
+            score.score,
+            score.confidence,
+            score.recommendation,
+            false
+          )
+        }
+      }
     }
     
     return score

@@ -177,6 +177,8 @@ class BotAnalyticsService {
   getThresholdRecommendations(): {
     shouldIncrease: boolean
     reason: string
+    suggestedThresholds: ThresholdConfig
+    confidence: number
   } | null {
     const attempts = this.getAttempts()
     const thresholds = this.getThresholds()
@@ -199,7 +201,24 @@ class BotAnalyticsService {
     if (fpRate > 20) {
       return {
         shouldIncrease: true,
-        reason: `High false positive rate (${fpRate.toFixed(1)}%). Consider increasing thresholds to improve UX.`
+        reason: `High false positive rate (${fpRate.toFixed(1)}%). Increasing thresholds will improve UX.`,
+        suggestedThresholds: {
+          challenge: Math.min(100, thresholds.challenge + 10),
+          block: Math.min(100, thresholds.block + 10),
+        },
+        confidence: Math.min(95, fpRate * 3),
+      }
+    }
+
+    if (fpRate > 10) {
+      return {
+        shouldIncrease: true,
+        reason: `Moderate false positive rate (${fpRate.toFixed(1)}%). Consider increasing thresholds.`,
+        suggestedThresholds: {
+          challenge: Math.min(100, thresholds.challenge + 5),
+          block: Math.min(100, thresholds.block + 5),
+        },
+        confidence: Math.min(85, fpRate * 4),
       }
     }
 
@@ -211,7 +230,12 @@ class BotAnalyticsService {
     if (fpRate < 5 && allowedBots.length > attempts.length * 0.1) {
       return {
         shouldIncrease: false,
-        reason: `Low false positive rate but many high-scoring attempts in allow zone. Consider lowering thresholds.`
+        reason: `Low false positive rate but ${((allowedBots.length / attempts.length) * 100).toFixed(1)}% of attempts near threshold. Consider lowering for better protection.`,
+        suggestedThresholds: {
+          challenge: Math.max(0, thresholds.challenge - 5),
+          block: Math.max(0, thresholds.block - 5),
+        },
+        confidence: 65,
       }
     }
 
