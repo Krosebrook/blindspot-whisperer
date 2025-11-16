@@ -7,6 +7,7 @@ import Results from './pages/Results'
 import Index from './pages/Index'
 import Share from './pages/Share'
 import Security from './pages/Security'
+import ResetPassword from './pages/ResetPassword'
 import ScanFormComponent from './components/ScanFormComponent'
 import AuthForm from './components/AuthForm'
 import './App.css'
@@ -302,6 +303,12 @@ function App() {
           >
             <Route index element={<Security />} />
           </Route>
+
+          {/* Public Share Route */}
+          <Route path="/share/:slug" element={<Share />} />
+          
+          {/* Password Reset Route */}
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

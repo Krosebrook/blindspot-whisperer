@@ -90,7 +90,19 @@ export const db = {
     return { data, error }
   },
 
-  async getShareCard(slug: string) {
+  async getShareCard(slug: string, authenticated: boolean = false) {
+    // If not authenticated, use the public view with limited data
+    if (!authenticated) {
+      const { data, error } = await supabase
+        .from('public_share_cards')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+      
+      return { data, error }
+    }
+    
+    // If authenticated, return full data
     const { data, error } = await supabase
       .from('share_cards')
       .select(`

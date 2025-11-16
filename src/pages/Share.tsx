@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, Navigate, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { supabase } from '@/integrations/supabase/client'
 import { 
   Share2, 
   Eye, 
@@ -12,13 +13,15 @@ import {
   TrendingUp,
   ExternalLink,
   Clock,
-  Shield
+  Shield,
+  Lock
 } from 'lucide-react'
 import { ShareCardService } from '@/lib/shareCardService'
 import { motion } from 'framer-motion'
 
 export default function Share() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
   const [shareCard, setShareCard] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
@@ -32,6 +35,10 @@ export default function Share() {
       }
 
       try {
+        // Check if user is authenticated
+        const { data: { session } } = await supabase.auth.getSession()
+        const isAuthenticated = !!session
+        
         // Get client identifier for rate limiting
         const clientId = sessionStorage.getItem('client_id') || 
                         `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -45,7 +52,10 @@ export default function Share() {
         if (result.error) {
           setError(result.error.message || 'Failed to load share card')
         } else if (result.data) {
-          setShareCard(result.data)
+          setShareCard({
+            ...result.data,
+            isLimitedView: !isAuthenticated
+          })
         } else {
           setError('Share card not found or has expired')
         }
@@ -115,10 +125,10 @@ export default function Share() {
         <Card className="w-full max-w-md">
           <CardContent className="p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Share Card Unavailable</h2>
-            <p className="text-muted-foreground mb-6">{error}</p>
-            <Button asChild>
-              <a href="/">Try BlindSpot Radar</a>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops!</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={() => window.location.href = '/'}>
+              Go to Homepage
             </Button>
           </CardContent>
         </Card>
@@ -131,166 +141,174 @@ export default function Share() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="max-w-4xl mx-auto p-4 py-8 space-y-6">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center space-y-4"
         >
-          <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
-            <Shield className="w-4 h-4" />
-            <span>Shared BlindSpot Analysis</span>
+          <div className="flex items-center justify-center gap-2">
+            <Shield className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">BlindSpot Radar</h1>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">{shareCard.title}</h1>
-          {shareCard.description && (
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {shareCard.description}
-            </p>
-          )}
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Shared Analysis Report
+          </p>
         </motion.div>
 
-        {/* Stats Overview */}
+        {/* Main Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid md:grid-cols-4 gap-4"
         >
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Target className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-blue-600">
-                {shareCard.blind_spot_count || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Total Blind Spots</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 text-center">
-              <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-red-600">
-                {shareCard.critical_count || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Critical Issues</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 text-center">
-              <TrendingUp className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-green-600">
-                {shareCard.scans?.persona || 'Business'}
-              </p>
-              <p className="text-sm text-muted-foreground">Analysis Type</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Eye className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-purple-600">
-                {shareCard.view_count || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Views</p>
+          <Card className="border-2">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <CardTitle className="text-2xl mb-2">{shareCard.title}</CardTitle>
+                  {!shareCard.isLimitedView && shareCard.description && (
+                    <p className="text-gray-600">{shareCard.description}</p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="flex items-center gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Limited View Warning for Unauthenticated Users */}
+              {shareCard.isLimitedView && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <Lock className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
+                      <span>Sign in to view full insights and detailed analysis</span>
+                      <Button 
+                        size="sm" 
+                        onClick={() => navigate('/auth')}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Sign In
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                </motion.div>
+              )}
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="p-4 text-center">
+                    <Target className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-blue-900">{shareCard.blind_spot_count || 0}</p>
+                    <p className="text-xs text-blue-700">Total Blind Spots</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-red-50 border-red-200">
+                  <CardContent className="p-4 text-center">
+                    <AlertTriangle className="w-6 h-6 text-red-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-red-900">{shareCard.critical_count || 0}</p>
+                    <p className="text-xs text-red-700">Critical Issues</p>
+                  </CardContent>
+                </Card>
+
+                {shareCard.scans && (
+                  <Card className="bg-purple-50 border-purple-200">
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-purple-900 capitalize">
+                        {shareCard.scans.persona || 'N/A'}
+                      </p>
+                      <p className="text-xs text-purple-700">Analysis Type</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card className="bg-green-50 border-green-200">
+                  <CardContent className="p-4 text-center">
+                    <Eye className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-green-900">{shareCard.view_count || 0}</p>
+                    <p className="text-xs text-green-700">Views</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Key Insights - Only show for authenticated users with full access */}
+              {!shareCard.isLimitedView && shareCard.key_insights && shareCard.key_insights.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                    Key Insights
+                  </h3>
+                  <ol className="space-y-2">
+                    {shareCard.key_insights.map((insight: string, index: number) => (
+                      <motion.li
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg"
+                      >
+                        <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                          {index + 1}
+                        </span>
+                        <p className="text-gray-700 flex-1">{insight}</p>
+                      </motion.li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Call to Action */}
+              <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                <CardContent className="p-6 text-center space-y-4">
+                  <h3 className="text-xl font-bold">Ready to Analyze Your Business?</h3>
+                  <p className="text-blue-100">
+                    Get your own comprehensive blind spot analysis and discover hidden opportunities
+                  </p>
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="bg-white text-blue-600 hover:bg-blue-50"
+                    onClick={() => window.location.href = '/auth'}
+                  >
+                    Start Your Analysis
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Key Insights */}
-        {shareCard.key_insights && shareCard.key_insights.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span>Key Insights</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {shareCard.key_insights.map((insight: string, index: number) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                      {index + 1}
-                    </div>
-                    <p className="text-gray-700">{insight}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Call to Action */}
+        {/* Footer */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-center space-y-6"
+          className="text-center text-sm text-gray-500 space-y-2"
         >
-          <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-bold mb-4">
-                Discover Your Own Blind Spots
-              </h3>
-              <p className="text-lg opacity-90 mb-6">
-                Get AI-powered insights tailored to your business and identify risks before they impact your success.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button 
-                  size="lg"
-                  variant="secondary"
-                  asChild
-                  className="bg-white text-blue-600 hover:bg-blue-50"
-                >
-                  <a href="/scan">
-                    <Target className="w-5 h-5 mr-2" />
-                    Start Your Analysis
-                  </a>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleShare}
-                  className="border-white text-white hover:bg-white/10"
-                >
-                  <Share2 className="w-5 h-5 mr-2" />
-                  Share This Card
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Security Notice */}
-          <Alert className="max-w-2xl mx-auto">
-            <Shield className="h-4 w-4" />
-            <AlertDescription className="text-left">
-              <strong>Privacy Protected:</strong> This share card contains sanitized, anonymized insights. 
-              Sensitive business information has been automatically removed for security.
-            </AlertDescription>
-          </Alert>
-
-          {/* Footer */}
-          <div className="flex items-center justify-center space-x-4 text-sm text-muted-foreground">
-            <div className="flex items-center space-x-1">
-              <Clock className="w-4 h-4" />
-              <span>Generated by BlindSpot Radar AI</span>
-            </div>
-            <span>•</span>
-            <a 
-              href="/" 
-              className="hover:text-blue-600 transition-colors flex items-center space-x-1"
-            >
-              <span>Try it yourself</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+          <p className="flex items-center justify-center gap-2">
+            <Clock className="w-4 h-4" />
+            Shared on {new Date(shareCard.created_at).toLocaleDateString()}
+          </p>
+          <p className="text-xs">
+            This report is shared publicly. Content is sanitized for security.
+          </p>
         </motion.div>
       </div>
     </div>
