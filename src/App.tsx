@@ -7,6 +7,7 @@ import Results from './pages/Results'
 import Index from './pages/Index'
 import Share from './pages/Share'
 import Security from './pages/Security'
+import BotAnalytics from './pages/BotAnalytics'
 import ResetPassword from './pages/ResetPassword'
 import ScanFormComponent from './components/ScanFormComponent'
 import AuthForm from './components/AuthForm'
@@ -235,6 +236,17 @@ function App() {
             }
           >
             <Route index element={<Results />} />
+          </Route>
+          
+          <Route 
+            path="/bot-analytics" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<BotAnalytics />} />
           </Route>
           
           {/* Placeholder routes for sidebar navigation */}

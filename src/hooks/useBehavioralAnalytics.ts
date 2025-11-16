@@ -277,6 +277,19 @@ export function useBehavioralAnalytics() {
     // Calculate and return bot score
     const score = calculateBotScore()
     setBotScore(score)
+    
+    // Record to analytics (import at top if needed)
+    if (typeof window !== 'undefined' && score) {
+      import('@/lib/botAnalyticsService').then(({ botAnalyticsService }) => {
+        botAnalyticsService.recordAttempt(
+          score.score,
+          score.confidence,
+          score.triggers,
+          score.recommendation
+        )
+      })
+    }
+    
     return score
   }, [isTracking, handleMouseMove, handleKeyDown, handlePaste, handleClick, calculateBotScore])
 

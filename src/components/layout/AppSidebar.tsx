@@ -8,7 +8,8 @@ import {
   Users, 
   Zap,
   FileText,
-  TrendingUp
+  TrendingUp,
+  Shield
 } from "lucide-react";
 
 import {
@@ -75,6 +76,12 @@ const toolsItems = [
 ];
 
 const systemItems = [
+  {
+    title: "Bot Analytics",
+    url: "/bot-analytics",
+    icon: Shield,
+    badge: "Admin"
+  },
   {
     title: "Settings",
     url: "/settings",
