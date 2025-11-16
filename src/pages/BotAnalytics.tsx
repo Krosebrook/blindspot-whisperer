@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Activity, AlertTriangle, CheckCircle, XCircle, TrendingUp, Settings, Database, Zap, Bell, TestTube2 } from 'lucide-react'
-import { botAnalyticsService, type BotAttempt, type ThresholdConfig } from '@/lib/botAnalyticsService'
+import { botAnalyticsService } from '@/lib/botAnalyticsService';
+import { BotAttempt, ThresholdConfig } from '@/types';
 import { alertService } from '@/lib/alertService'
 import { ExportMenu } from '@/components/ExportMenu'
 import { AlertConfiguration } from '@/components/AlertConfiguration'

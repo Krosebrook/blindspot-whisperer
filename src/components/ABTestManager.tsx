@@ -7,8 +7,9 @@ import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Plus, Play, Pause, CheckCircle, XCircle, TrendingUp, Trophy } from 'lucide-react'
-import { abTestService, ABTest } from '@/lib/abTestService'
-import { botAnalyticsService, ThresholdConfig } from '@/lib/botAnalyticsService'
+import { abTestService, ABTest } from '@/lib/abTestService';
+import { botAnalyticsService } from '@/lib/botAnalyticsService';
+import { ThresholdConfig } from '@/types';
 import { toast } from 'sonner'
 
 export function ABTestManager() {
