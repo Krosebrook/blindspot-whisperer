@@ -460,6 +460,54 @@ export type Database = {
       }
     }
     Views: {
+      public_share_cards: {
+        Row: {
+          blind_spot_count: number | null
+          created_at: string | null
+          critical_count: number | null
+          id: string | null
+          scan_id: string | null
+          slug: string | null
+          title: string | null
+          view_count: number | null
+        }
+        Insert: {
+          blind_spot_count?: number | null
+          created_at?: string | null
+          critical_count?: number | null
+          id?: string | null
+          scan_id?: string | null
+          slug?: string | null
+          title?: never
+          view_count?: number | null
+        }
+        Update: {
+          blind_spot_count?: number | null
+          created_at?: string | null
+          critical_count?: number | null
+          id?: string | null
+          scan_id?: string | null
+          slug?: string | null
+          title?: never
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_cards_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scan_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_cards_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_summaries: {
         Row: {
           business_type: string | null

@@ -13,6 +13,8 @@ interface AuthContextType {
   signOut: () => Promise<{ error?: AuthError }>
   updateProfile: (updates: any) => Promise<{ error?: any }>
   refreshProfile: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ error?: AuthError }>
+  updatePassword: (newPassword: string) => Promise<{ error?: AuthError }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -187,6 +189,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await loadProfile(user.id)
   }
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password?mode=reset`,
+      })
+      
+      if (error) {
+        console.error('Password reset error:', error)
+        return { error }
+      }
+      
+      return { error: null }
+    } catch (error) {
+      console.error('Unexpected password reset error:', error)
+      return { error: error as AuthError }
+    }
+  }
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+      
+      if (error) {
+        console.error('Password update error:', error)
+        return { error }
+      }
+      
+      return { error: null }
+    } catch (error) {
+      console.error('Unexpected password update error:', error)
+      return { error: error as AuthError }
+    }
+  }
+
   const value = {
     user,
     session,
@@ -196,7 +234,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signOut,
     updateProfile,
-    refreshProfile
+    refreshProfile,
+    resetPassword,
+    updatePassword
   }
 
   return (
