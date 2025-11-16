@@ -27,11 +27,64 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [showCaptcha, setShowCaptcha] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
   const captchaRef = useRef<HCaptcha>(null)
 
   const { signIn, signUp } = useAuth()
   
   const captchaSiteKey = import.meta.env.VITE_CAPTCHA_SITE_KEY
+
+  // Check failed attempts from localStorage on email change
+  const checkFailedAttempts = (checkEmail: string) => {
+    if (!checkEmail) return
+    
+    const storageKey = `auth_failed_${checkEmail}`
+    const stored = localStorage.getItem(storageKey)
+    
+    if (stored) {
+      const { count, timestamp } = JSON.parse(stored)
+      // Reset if older than 15 minutes
+      if (Date.now() - timestamp > 15 * 60 * 1000) {
+        localStorage.removeItem(storageKey)
+        setFailedAttempts(0)
+        setShowCaptcha(false)
+      } else {
+        setFailedAttempts(count)
+        // Show CAPTCHA after 2 failed attempts
+        setShowCaptcha(count >= 2)
+      }
+    } else {
+      setFailedAttempts(0)
+      setShowCaptcha(false)
+    }
+  }
+
+  // Track failed attempt
+  const trackFailedAttempt = (attemptEmail: string) => {
+    const storageKey = `auth_failed_${attemptEmail}`
+    const newCount = failedAttempts + 1
+    
+    localStorage.setItem(storageKey, JSON.stringify({
+      count: newCount,
+      timestamp: Date.now()
+    }))
+    
+    setFailedAttempts(newCount)
+    
+    // Show CAPTCHA after 2 failed attempts
+    if (newCount >= 2) {
+      setShowCaptcha(true)
+    }
+  }
+
+  // Clear failed attempts on success
+  const clearFailedAttempts = (attemptEmail: string) => {
+    const storageKey = `auth_failed_${attemptEmail}`
+    localStorage.removeItem(storageKey)
+    setFailedAttempts(0)
+    setShowCaptcha(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,8 +107,8 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
       return
     }
 
-    // CAPTCHA validation (if configured)
-    if (captchaSiteKey && !captchaToken) {
+    // CAPTCHA validation (only if CAPTCHA is shown and configured)
+    if (captchaSiteKey && showCaptcha && !captchaToken) {
       setError('Please complete the CAPTCHA verification')
       return
     }
@@ -92,8 +145,10 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
           // Reset captcha on error
           captchaRef.current?.resetCaptcha()
           setCaptchaToken(null)
+          trackFailedAttempt(email)
         } else {
           setSuccess('Account created successfully! Please check your email for confirmation.')
+          clearFailedAttempts(email)
           if (onSuccess) onSuccess()
         }
       } else {
@@ -102,22 +157,26 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             setError('Invalid email or password')
+            trackFailedAttempt(email)
           } else if (error.message.includes('Too many failed')) {
             setError(error.message) // Show rate limit message
           } else {
             setError(error.message)
+            trackFailedAttempt(email)
           }
           // Reset captcha on error
           captchaRef.current?.resetCaptcha()
           setCaptchaToken(null)
         } else {
           setSuccess('Signed in successfully!')
+          clearFailedAttempts(email)
           if (onSuccess) onSuccess()
         }
       }
     } catch (err) {
       console.error('Auth error:', err)
       setError('Something went wrong. Please try again.')
+      trackFailedAttempt(email)
       // Reset captcha on error
       captchaRef.current?.resetCaptcha()
       setCaptchaToken(null)
@@ -135,6 +194,8 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
     setConfirmPassword('')
     setFullName('')
     setCaptchaToken(null)
+    setShowCaptcha(false)
+    setFailedAttempts(0)
     captchaRef.current?.resetCaptcha()
   }
 
@@ -205,7 +266,19 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      // Check failed attempts when email changes
+                      if (e.target.value.includes('@')) {
+                        checkFailedAttempts(e.target.value)
+                      }
+                    }}
+                    onBlur={() => {
+                      // Check again on blur to ensure we catch paste events
+                      if (email.includes('@')) {
+                        checkFailedAttempts(email)
+                      }
+                    }}
                     placeholder="you@example.com"
                     disabled={isLoading}
                     className="pl-10"
@@ -254,16 +327,28 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
                 </div>
               )}
 
-              {/* CAPTCHA */}
-              {captchaSiteKey && (
-                <div className="flex justify-center">
-                  <HCaptcha
-                    ref={captchaRef}
-                    sitekey={captchaSiteKey}
-                    onVerify={(token) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken(null)}
-                  />
-                </div>
+              {/* Progressive CAPTCHA - Only shown after 2 failed attempts */}
+              {captchaSiteKey && showCaptcha && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-2"
+                >
+                  <div className="flex justify-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="space-y-2">
+                      <p className="text-sm text-yellow-800 text-center">
+                        Security verification required after {failedAttempts} failed {failedAttempts === 1 ? 'attempt' : 'attempts'}
+                      </p>
+                      <HCaptcha
+                        ref={captchaRef}
+                        sitekey={captchaSiteKey}
+                        onVerify={(token) => setCaptchaToken(token)}
+                        onExpire={() => setCaptchaToken(null)}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
               )}
 
               <Button
