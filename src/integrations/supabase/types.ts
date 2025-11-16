@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      auth_attempts: {
+        Row: {
+          attempt_type: string
+          created_at: string
+          email: string | null
+          id: string
+          ip_address: unknown
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          attempt_type: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address: unknown
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          attempt_type?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address?: unknown
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       blind_spots: {
         Row: {
           ai_reasoning: string | null
@@ -526,7 +556,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_auth_attempts: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

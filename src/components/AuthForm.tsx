@@ -97,11 +97,13 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
           if (onSuccess) onSuccess()
         }
       } else {
-        const { error } = await signIn(email, password)
+        const { error } = await signIn(email, password, captchaToken || undefined)
 
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             setError('Invalid email or password')
+          } else if (error.message.includes('Too many failed')) {
+            setError(error.message) // Show rate limit message
           } else {
             setError(error.message)
           }

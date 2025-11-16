@@ -9,7 +9,7 @@ interface AuthContextType {
   profile: any | null
   loading: boolean
   signUp: (email: string, password: string, metadata?: any) => Promise<{ error?: AuthError }>
-  signIn: (email: string, password: string) => Promise<{ error?: AuthError }>
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error?: AuthError }>
   signOut: () => Promise<{ error?: AuthError }>
   updateProfile: (updates: any) => Promise<{ error?: any }>
   refreshProfile: () => Promise<void>
@@ -96,23 +96,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUp = async (email: string, password: string, metadata = {}) => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: metadata
+      // Use rate-limited edge function for signup
+      const { data, error } = await supabase.functions.invoke('rate-limited-auth', {
+        body: {
+          action: 'signup',
+          email,
+          password,
+          metadata,
+          captchaToken: (metadata as any).captchaToken
         }
       })
 
       if (error) {
         console.error('Sign up error:', error)
-        return { error }
+        return { error: { message: error.message } as AuthError }
       }
 
-      if (data.user && !data.session) {
-        // Email confirmation required
-        return { error: null }
+      if (data?.error) {
+        console.error('Sign up error:', data.error)
+        return { error: { message: data.error.message || data.error } as AuthError }
       }
 
       return { error: null }
@@ -124,17 +126,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, captchaToken?: string) => {
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      // Use rate-limited edge function for signin
+      const { data, error } = await supabase.functions.invoke('rate-limited-auth', {
+        body: {
+          action: 'signin',
+          email,
+          password,
+          captchaToken
+        }
       })
 
       if (error) {
         console.error('Sign in error:', error)
-        return { error }
+        return { error: { message: error.message } as AuthError }
+      }
+
+      if (data?.error) {
+        console.error('Sign in error:', data.error)
+        return { error: { message: data.error.message || data.error } as AuthError }
+      }
+
+      // The edge function returns the session, we need to set it
+      if (data?.data?.session) {
+        const { data: { session } } = await supabase.auth.getSession()
+        setSession(session)
+        setUser(session?.user ?? null)
       }
 
       return { error: null }
@@ -191,13 +210,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password?mode=reset`,
+      // Use rate-limited edge function for password reset
+      const { data, error } = await supabase.functions.invoke('rate-limited-auth', {
+        body: {
+          action: 'reset_password',
+          email
+        }
       })
       
       if (error) {
         console.error('Password reset error:', error)
-        return { error }
+        return { error: { message: error.message } as AuthError }
+      }
+
+      if (data?.error) {
+        console.error('Password reset error:', data.error)
+        return { error: { message: data.error.message || data.error } as AuthError }
       }
       
       return { error: null }
