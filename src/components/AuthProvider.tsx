@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User, Session, AuthError } from '@supabase/supabase-js'
-import { supabase } from '@/integrations/supabase/client'
-import { db } from '@/lib/database'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User, Session, AuthError } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/database';
+import { logger } from '@/utils/logger';
+import { ErrorHandler } from '@/utils/errorHandler';
 
 interface AuthContextType {
   user: User | null
@@ -79,24 +81,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const loadProfile = async (userId: string) => {
     try {
-      const { data, error } = await db.getProfile(userId)
+      const { data, error } = await db.getProfile(userId);
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-        console.error('Error loading profile:', error)
+      if (error && error.code !== 'PGRST116') {
+        logger.error('Error loading profile', error, { userId });
       } else {
-        setProfile(data)
+        setProfile(data);
       }
     } catch (error) {
-      console.error('Unexpected error loading profile:', error)
+      logger.error('Unexpected error loading profile', error, { userId });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const signUp = async (email: string, password: string, metadata = {}) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      // Use rate-limited edge function for signup
+      logger.info('User signup initiated', { email });
+      
       const { data, error } = await supabase.functions.invoke('rate-limited-auth', {
         body: {
           action: 'signup',
@@ -105,26 +108,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
           metadata,
           captchaToken: (metadata as any).captchaToken
         }
-      })
+      });
 
-      if (error) {
-        console.error('Sign up error:', error)
-        return { error: { message: error.message } as AuthError }
+      if (error || data?.error) {
+        const appError = ErrorHandler.handleAuthError(error || data.error);
+        return { error: { message: appError.message } as AuthError };
       }
 
-      if (data?.error) {
-        console.error('Sign up error:', data.error)
-        return { error: { message: data.error.message || data.error } as AuthError }
-      }
-
-      return { error: null }
+      logger.info('User signup successful', { email });
+      return { error: null };
     } catch (error) {
-      console.error('Unexpected sign up error:', error)
-      return { error: error as AuthError }
+      logger.error('Unexpected sign up error', error);
+      const appError = ErrorHandler.handleAuthError(error);
+      return { error: appError as AuthError };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const signIn = async (email: string, password: string, captchaToken?: string) => {
     setLoading(true)

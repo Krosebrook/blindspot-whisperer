@@ -3,30 +3,19 @@
  * Manages behavioral analytics data, thresholds, and false positive tracking
  */
 
-export interface BotAttempt {
-  id: string
-  timestamp: number
-  score: number
-  confidence: number
-  triggers: string[]
-  recommendation: 'allow' | 'challenge' | 'block'
-  isFalsePositive: boolean
-}
-
-export interface ThresholdConfig {
-  challenge: number // Score at which to trigger CAPTCHA
-  block: number // Score at which to block immediately
-}
+import { StorageService } from '@/services/storageService';
+import { logger } from '@/utils/logger';
+import { BotAttempt, ThresholdConfig } from '@/types';
 
 const STORAGE_KEYS = {
   ATTEMPTS: 'bot_analytics_attempts',
   THRESHOLDS: 'bot_analytics_thresholds',
-} as const
+} as const;
 
 const DEFAULT_THRESHOLDS: ThresholdConfig = {
   challenge: 35,
   block: 60,
-}
+};
 
 class BotAnalyticsService {
   /**
@@ -46,52 +35,43 @@ class BotAnalyticsService {
       triggers,
       recommendation,
       isFalsePositive: false,
-    }
+    };
 
-    const attempts = this.getAttempts()
-    attempts.push(attempt)
+    const attempts = this.getAttempts();
+    attempts.push(attempt);
 
-    // Keep only last 1000 attempts to prevent localStorage overflow
-    const trimmedAttempts = attempts.slice(-1000)
+    // Keep only last 1000 attempts to prevent overflow
+    const trimmedAttempts = attempts.slice(-1000);
     
-    try {
-      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(trimmedAttempts))
-    } catch (error) {
-      console.error('Failed to store bot analytics:', error)
-      // If storage fails, try clearing old data
-      if (attempts.length > 500) {
-        const recentAttempts = attempts.slice(-500)
-        localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(recentAttempts))
-      }
+    const success = StorageService.set(STORAGE_KEYS.ATTEMPTS, trimmedAttempts);
+    
+    if (!success) {
+      logger.warn('Storage limit reached, trimming to 500 attempts');
+      const recentAttempts = attempts.slice(-500);
+      StorageService.set(STORAGE_KEYS.ATTEMPTS, recentAttempts);
     }
 
-    return attempt.id
+    return attempt.id;
   }
 
   /**
    * Get all recorded attempts
    */
   getAttempts(): BotAttempt[] {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.ATTEMPTS)
-      if (!data) return []
-      return JSON.parse(data)
-    } catch (error) {
-      console.error('Failed to load bot analytics:', error)
-      return []
-    }
+    const data = StorageService.get<BotAttempt[]>(STORAGE_KEYS.ATTEMPTS);
+    return data || [];
   }
 
   /**
    * Mark an attempt as a false positive (or unmark)
    */
   markFalsePositive(attemptId: string, isFalsePositive: boolean): void {
-    const attempts = this.getAttempts()
-    const attempt = attempts.find(a => a.id === attemptId)
+    const attempts = this.getAttempts();
+    const attempt = attempts.find(a => a.id === attemptId);
     
     if (attempt) {
-      attempt.isFalsePositive = isFalsePositive
-      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts))
+      attempt.isFalsePositive = isFalsePositive;
+      StorageService.set(STORAGE_KEYS.ATTEMPTS, attempts);
     }
   }
 
@@ -99,21 +79,15 @@ class BotAnalyticsService {
    * Clear all recorded attempts
    */
   clearAttempts(): void {
-    localStorage.removeItem(STORAGE_KEYS.ATTEMPTS)
+    StorageService.remove(STORAGE_KEYS.ATTEMPTS);
   }
 
   /**
    * Get current detection thresholds
    */
   getThresholds(): ThresholdConfig {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.THRESHOLDS)
-      if (!data) return DEFAULT_THRESHOLDS
-      return JSON.parse(data)
-    } catch (error) {
-      console.error('Failed to load thresholds:', error)
-      return DEFAULT_THRESHOLDS
-    }
+    const data = StorageService.get<ThresholdConfig>(STORAGE_KEYS.THRESHOLDS);
+    return data || DEFAULT_THRESHOLDS;
   }
 
   /**
@@ -122,13 +96,13 @@ class BotAnalyticsService {
   updateThresholds(thresholds: ThresholdConfig): void {
     // Validate thresholds
     if (thresholds.challenge >= thresholds.block) {
-      throw new Error('Challenge threshold must be lower than block threshold')
+      throw new Error('Challenge threshold must be lower than block threshold');
     }
     if (thresholds.challenge < 0 || thresholds.block > 100) {
-      throw new Error('Thresholds must be between 0 and 100')
+      throw new Error('Thresholds must be between 0 and 100');
     }
 
-    localStorage.setItem(STORAGE_KEYS.THRESHOLDS, JSON.stringify(thresholds))
+    StorageService.set(STORAGE_KEYS.THRESHOLDS, thresholds);
   }
 
   /**

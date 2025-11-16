@@ -3,34 +3,14 @@
  * Manages alert rules, triggers, and notification history
  */
 
-export type AlertType = 
-  | 'HIGH_FALSE_POSITIVE_RATE'
-  | 'HIGH_BOT_ACTIVITY'
-  | 'THRESHOLD_DRIFT'
-  | 'ANOMALY_DETECTED'
-
-export interface AlertRule {
-  type: AlertType
-  enabled: boolean
-  threshold: number
-  cooldownMinutes: number
-  lastTriggered: number | null
-}
-
-export interface AlertEvent {
-  id: string
-  type: AlertType
-  timestamp: number
-  message: string
-  severity: 'info' | 'warning' | 'error'
-  acknowledged: boolean
-  data?: Record<string, any>
-}
+import { StorageService } from '@/services/storageService';
+import { logger } from '@/utils/logger';
+import { AlertType, AlertRule, AlertEvent } from '@/types';
 
 const STORAGE_KEYS = {
   RULES: 'alert_rules',
   HISTORY: 'alert_history',
-} as const
+} as const;
 
 const DEFAULT_RULES: Record<AlertType, AlertRule> = {
   HIGH_FALSE_POSITIVE_RATE: {
@@ -93,37 +73,25 @@ class AlertService {
    * Get all alert rules
    */
   getRules(): Record<AlertType, AlertRule> {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.RULES)
-      if (!data) return DEFAULT_RULES
-      return { ...DEFAULT_RULES, ...JSON.parse(data) }
-    } catch (error) {
-      console.error('Failed to load alert rules:', error)
-      return DEFAULT_RULES
-    }
+    const data = StorageService.get<Record<AlertType, AlertRule>>(STORAGE_KEYS.RULES);
+    return data ? { ...DEFAULT_RULES, ...data } : DEFAULT_RULES;
   }
 
   /**
    * Update a specific alert rule
    */
   updateRule(type: AlertType, updates: Partial<AlertRule>): void {
-    const rules = this.getRules()
-    rules[type] = { ...rules[type], ...updates }
-    localStorage.setItem(STORAGE_KEYS.RULES, JSON.stringify(rules))
+    const rules = this.getRules();
+    rules[type] = { ...rules[type], ...updates };
+    StorageService.set(STORAGE_KEYS.RULES, rules);
   }
 
   /**
    * Get alert history
    */
   getHistory(): AlertEvent[] {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.HISTORY)
-      if (!data) return []
-      return JSON.parse(data)
-    } catch (error) {
-      console.error('Failed to load alert history:', error)
-      return []
-    }
+    const data = StorageService.get<AlertEvent[]>(STORAGE_KEYS.HISTORY);
+    return data || [];
   }
 
   /**
@@ -204,11 +172,11 @@ class AlertService {
    * Mark alert as acknowledged
    */
   acknowledgeAlert(alertId: string): void {
-    const history = this.getHistory()
-    const alert = history.find(a => a.id === alertId)
+    const history = this.getHistory();
+    const alert = history.find(a => a.id === alertId);
     if (alert) {
-      alert.acknowledged = true
-      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history))
+      alert.acknowledged = true;
+      StorageService.set(STORAGE_KEYS.HISTORY, history);
     }
   }
 
@@ -216,7 +184,7 @@ class AlertService {
    * Clear alert history
    */
   clearHistory(): void {
-    localStorage.removeItem(STORAGE_KEYS.HISTORY)
+    StorageService.remove(STORAGE_KEYS.HISTORY);
   }
 
   /**

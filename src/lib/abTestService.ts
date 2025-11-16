@@ -3,43 +3,45 @@
  * Manages threshold A/B tests and result tracking
  */
 
-import { ThresholdConfig } from './botAnalyticsService'
+import { StorageService } from '@/services/storageService';
+import { logger } from '@/utils/logger';
+import { ThresholdConfig } from '@/types';
 
 export interface TestResults {
-  attempts: number
-  allowed: number
-  challenged: number
-  blocked: number
-  falsePositives: number
-  avgBotScore: number
-  avgConfidence: number
+  attempts: number;
+  allowed: number;
+  challenged: number;
+  blocked: number;
+  falsePositives: number;
+  avgBotScore: number;
+  avgConfidence: number;
 }
 
 export interface ABTest {
-  id: string
-  name: string
-  status: 'active' | 'paused' | 'completed'
-  startDate: number
-  endDate: number | null
+  id: string;
+  name: string;
+  status: 'active' | 'paused' | 'completed';
+  startDate: number;
+  endDate: number | null;
   variants: {
-    control: ThresholdConfig
-    variant: ThresholdConfig
-  }
-  trafficSplit: number // % in variant (0-100)
-  minSampleSize: number
+    control: ThresholdConfig;
+    variant: ThresholdConfig;
+  };
+  trafficSplit: number;
+  minSampleSize: number;
   results: {
-    control: TestResults
-    variant: TestResults
-  }
+    control: TestResults;
+    variant: TestResults;
+  };
 }
 
 export interface TestAttemptTag {
-  testId: string
-  variant: 'control' | 'variant'
+  testId: string;
+  variant: 'control' | 'variant';
 }
 
-const STORAGE_KEY = 'ab_tests'
-const SESSION_KEY = 'ab_test_assignment'
+const STORAGE_KEY = 'ab_tests';
+const SESSION_KEY = 'ab_test_assignment';
 
 class ABTestService {
   /**
@@ -67,25 +69,19 @@ class ABTestService {
       },
     }
 
-    const tests = this.getTests()
-    tests.push(test)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tests))
+    const tests = this.getTests();
+    tests.push(test);
+    StorageService.set(STORAGE_KEY, tests);
 
-    return test
+    return test;
   }
 
   /**
    * Get all tests
    */
   getTests(): ABTest[] {
-    try {
-      const data = localStorage.getItem(STORAGE_KEY)
-      if (!data) return []
-      return JSON.parse(data)
-    } catch (error) {
-      console.error('Failed to load A/B tests:', error)
-      return []
-    }
+    const data = StorageService.get<ABTest[]>(STORAGE_KEY);
+    return data || [];
   }
 
   /**
@@ -171,7 +167,7 @@ class ABTestService {
     if (recommendation === 'block') results.blocked++
     if (isFalsePositive) results.falsePositives++
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tests))
+    StorageService.set(STORAGE_KEY, tests);
   }
 
   /**
@@ -186,7 +182,7 @@ class ABTestService {
       if (status === 'completed') {
         test.endDate = Date.now()
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tests))
+      StorageService.set(STORAGE_KEY, tests);
     }
   }
 

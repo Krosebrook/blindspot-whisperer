@@ -6,7 +6,8 @@ import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Bell, BellOff, Check, Clock } from 'lucide-react'
-import { alertService, AlertEvent, AlertRule, AlertType } from '@/lib/alertService'
+import { alertService } from '@/lib/alertService';
+import { AlertEvent, AlertRule, AlertType } from '@/types';
 import { toast } from 'sonner'
 
 const ALERT_DESCRIPTIONS: Record<AlertType, { title: string; description: string; unit: string }> = {
