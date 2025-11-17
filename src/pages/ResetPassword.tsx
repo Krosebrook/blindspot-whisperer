@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, Lock, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { passwordSchema, validateWithSchema } from '@/utils/validation';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -59,8 +60,10 @@ export default function ResetPassword() {
     setSuccess('');
     setIsSubmitting(true);
 
-    if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    // Validate password with Zod schema
+    const passwordValidation = validateWithSchema(passwordSchema, password);
+    if (!passwordValidation.success) {
+      setError(passwordValidation.errors.join(', '));
       setIsSubmitting(false);
       return;
     }
