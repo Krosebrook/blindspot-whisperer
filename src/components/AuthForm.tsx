@@ -9,6 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from './AuthProvider'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { useBehavioralAnalytics } from '@/hooks/useBehavioralAnalytics'
+import { validateWithSchema, signInSchema, signUpSchema } from '@/utils/validation'
+import { ErrorHandler } from '@/utils/errorHandler'
+import { StorageService } from '@/services/storageService'
+import { logger } from '@/utils/logger'
 
 interface AuthFormProps {
   mode?: 'signin' | 'signup'
@@ -51,25 +55,18 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
     }
   }, [])
 
-  // Check failed attempts from localStorage on email change
+  // Check failed attempts from storage on email change
   const checkFailedAttempts = (checkEmail: string) => {
     if (!checkEmail) return
     
     const storageKey = `auth_failed_${checkEmail}`
-    const stored = localStorage.getItem(storageKey)
+    const stored = StorageService.get<{ count: number; timestamp: number }>(storageKey)
     
     if (stored) {
-      const { count, timestamp } = JSON.parse(stored)
-      // Reset if older than 15 minutes
-      if (Date.now() - timestamp > 15 * 60 * 1000) {
-        localStorage.removeItem(storageKey)
-        setFailedAttempts(0)
-        setShowCaptcha(false)
-      } else {
-        setFailedAttempts(count)
-        // Show CAPTCHA after 2 failed attempts
-        setShowCaptcha(count >= 2)
-      }
+      // Check if data is still valid (TTL is handled by StorageService)
+      setFailedAttempts(stored.count)
+      // Show CAPTCHA after 2 failed attempts
+      setShowCaptcha(stored.count >= 2)
     } else {
       setFailedAttempts(0)
       setShowCaptcha(false)
@@ -81,10 +78,11 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
     const storageKey = `auth_failed_${attemptEmail}`
     const newCount = failedAttempts + 1
     
-    localStorage.setItem(storageKey, JSON.stringify({
+    // Store with 15-minute TTL
+    StorageService.set(storageKey, {
       count: newCount,
       timestamp: Date.now()
-    }))
+    }, 15 * 60 * 1000)
     
     setFailedAttempts(newCount)
     
@@ -97,7 +95,7 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
   // Clear failed attempts on success
   const clearFailedAttempts = (attemptEmail: string) => {
     const storageKey = `auth_failed_${attemptEmail}`
-    localStorage.removeItem(storageKey)
+    StorageService.remove(storageKey)
     setFailedAttempts(0)
     setShowCaptcha(false)
   }
@@ -109,34 +107,32 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
 
     // Get real-time bot score
     const currentScore = getCurrentScore()
-    console.log('[Behavioral Analytics] Bot Score:', currentScore)
+    logger.debug('Bot score calculated', { score: currentScore?.score, recommendation: currentScore?.recommendation })
 
     // If bot score is high, force CAPTCHA even on first attempt
     if (currentScore && currentScore.recommendation === 'challenge' && !showCaptcha) {
       setShowCaptcha(true)
-      setError(`Unusual interaction pattern detected. Please complete verification. (Bot Score: ${currentScore.score}/100)`)
+      setError('Please complete the security check')
       return
     }
 
     // If bot score is very high, block immediately
     if (currentScore && currentScore.recommendation === 'block') {
-      setError('Suspicious activity detected. Please contact support if you believe this is an error.')
+      setError('Suspicious activity detected. Please try again later.')
       return
     }
 
-    // Validation
-    if (!email || !password) {
-      setError('Please fill in all required fields')
-      return
-    }
-
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address')
-      return
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    // Validate input using schemas
+    const validationSchema = isSignUp ? signUpSchema : signInSchema
+    const validationData = isSignUp 
+      ? { email, password, confirmPassword }
+      : { email, password }
+    
+    const validation = validateWithSchema(validationSchema, validationData)
+    
+    if (!validation.success) {
+      const errorMessage = ErrorHandler.handleValidationError(validation.errors || ['Invalid input'])
+      setError(errorMessage.message)
       return
     }
 
@@ -146,71 +142,64 @@ export default function AuthForm({ mode = 'signin', onSuccess, className = '' }:
       return
     }
 
-    if (isSignUp) {
-      if (password !== confirmPassword) {
-        setError('Passwords do not match')
-        return
-      }
-      
-      if (!fullName.trim()) {
-        setError('Please enter your full name')
-        return
-      }
+    if (isSignUp && !fullName.trim()) {
+      setError('Please enter your full name')
+      return
     }
 
     setIsLoading(true)
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password, {
+        const { error: signUpError } = await signUp(email, password, {
           full_name: fullName.trim(),
-          ...(captchaToken && { captchaToken })
+          captchaToken
         })
 
-        if (error) {
-          if (error.message.includes('already registered')) {
-            setError('An account with this email already exists')
-          } else if (error.message.includes('email')) {
-            setSuccess('Please check your email and click the confirmation link to complete signup')
-          } else {
-            setError(error.message)
-          }
-          // Reset captcha on error
-          captchaRef.current?.resetCaptcha()
-          setCaptchaToken(null)
+        if (signUpError) {
+          const appError = ErrorHandler.handleAuthError(signUpError)
+          setError(appError.message)
           trackFailedAttempt(email)
-        } else {
-          setSuccess('Account created successfully! Please check your email for confirmation.')
-          clearFailedAttempts(email)
-          if (onSuccess) onSuccess()
-        }
-      } else {
-        const { error } = await signIn(email, password, captchaToken || undefined)
-
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            setError('Invalid email or password')
-            trackFailedAttempt(email)
-          } else if (error.message.includes('Too many failed')) {
-            setError(error.message) // Show rate limit message
-          } else {
-            setError(error.message)
-            trackFailedAttempt(email)
-          }
-          // Reset captcha on error
           captchaRef.current?.resetCaptcha()
           setCaptchaToken(null)
+          return
+        }
+
+        clearFailedAttempts(email)
+        setSuccess('Account created successfully! Please check your email to verify your account.')
+        
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess()
+          } else {
+            navigate('/dashboard')
+          }
+        }, 2000)
+      } else {
+        const { error: signInError } = await signIn(email, password, captchaToken || undefined)
+
+        if (signInError) {
+          const appError = ErrorHandler.handleAuthError(signInError)
+          setError(appError.message)
+          trackFailedAttempt(email)
+          captchaRef.current?.resetCaptcha()
+          setCaptchaToken(null)
+          return
+        }
+
+        clearFailedAttempts(email)
+        setSuccess('Sign in successful!')
+        
+        if (onSuccess) {
+          onSuccess()
         } else {
-          setSuccess('Signed in successfully!')
-          clearFailedAttempts(email)
-          if (onSuccess) onSuccess()
+          navigate('/dashboard')
         }
       }
     } catch (err) {
-      console.error('Auth error:', err)
-      setError('Something went wrong. Please try again.')
+      const appError = ErrorHandler.handle(err, 'AuthForm')
+      setError(appError.message)
       trackFailedAttempt(email)
-      // Reset captcha on error
       captchaRef.current?.resetCaptcha()
       setCaptchaToken(null)
     } finally {

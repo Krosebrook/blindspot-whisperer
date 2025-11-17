@@ -10,6 +10,9 @@ import { supabase } from '@/integrations/supabase/client'
 import { db } from '@/lib/database'
 import { SecurityService } from '@/lib/security'
 import { AuditLogger } from '@/lib/auditLogger'
+import { validateWithSchema, scanInputSchema } from '@/utils/validation'
+import { ErrorHandler } from '@/utils/errorHandler'
+import { logger } from '@/utils/logger'
 
 interface PersonaOption {
   id: 'saas_founder' | 'ecommerce' | 'content_creator' | 'service_business' | 'student' | 'no_coder' | 'enterprise'
@@ -102,6 +105,26 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
     e.preventDefault()
     setError('')
     
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setError('You must be logged in to scan')
+      return
+    }
+
+    // Validate using schema
+    const validation = validateWithSchema(scanInputSchema, {
+      persona: selectedPersona,
+      business_description: businessDescription,
+      user_id: user.id
+    })
+
+    if (!validation.success) {
+      const errorMessage = ErrorHandler.handleValidationError(validation.errors || ['Invalid input'])
+      setError(errorMessage.message)
+      return
+    }
+
     // Enhanced security validation
     const advancedValidation = SecurityService.validateBusinessDescriptionAdvanced(businessDescription)
     if (!advancedValidation.isValid) {
@@ -113,33 +136,17 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
     const threatAnalysis = SecurityService.detectSecurityThreats(businessDescription)
     if (threatAnalysis.riskLevel === 'critical' || threatAnalysis.riskLevel === 'high') {
       setError(`Security check failed: ${threatAnalysis.threats.join(', ')}`)
-      return
-    }
-
-    // Validate scan input
-    const validation = SecurityService.validateScanInput({
-      persona: selectedPersona,
-      business_description: businessDescription,
-      user_id: 'temp' // Will be validated with actual user ID below
-    })
-    
-    if (!validation.isValid) {
-      setError(validation.errors[0])
+      
+      await AuditLogger.trackUserAction('security_threat_blocked', {
+        input: businessDescription.substring(0, 100),
+        threats: threatAnalysis.threats
+      })
       return
     }
 
     setIsLoading(true)
     
     try {
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError || !user) {
-        setError('You must be logged in to start a scan')
-        setIsLoading(false)
-        return
-      }
-
       // Log the scan attempt for security monitoring
       await AuditLogger.trackUserAction('scan_initiated', {
         persona: selectedPersona,
@@ -152,18 +159,20 @@ export default function ScanFormComponent({ onSubmit, className = '' }: ScanForm
       const scanData = {
         user_id: user.id,
         persona: selectedPersona as any,
-        business_description: advancedValidation.sanitized, // Use enhanced sanitized content
+        business_description: advancedValidation.sanitized,
         status: 'pending' as const,
       }
 
       const { data: scan, error: scanError } = await db.createScan(scanData)
       
       if (scanError) {
-        console.error('Scan creation error:', scanError)
-        setError('Failed to start scan. Please try again.')
-        setIsLoading(false)
+        const errorMessage = ErrorHandler.handleDatabaseError(scanError)
+        setError(errorMessage.message)
+        logger.error('Failed to create scan', scanError, { userId: user.id, persona: selectedPersona })
         return
       }
+
+      logger.info('Scan created successfully', { scanId: scan.id, persona: selectedPersona })
 
       // Track successful scan creation
       await AuditLogger.trackUserAction('scan_created', {
