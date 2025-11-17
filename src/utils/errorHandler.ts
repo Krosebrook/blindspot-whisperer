@@ -5,6 +5,7 @@
 
 import { AuthError } from '@supabase/supabase-js';
 import { logger } from './logger';
+import { captureError } from '@/lib/sentry';
 
 export interface AppError {
   message: string;
@@ -98,6 +99,10 @@ export class ErrorHandler {
    */
   static handle(error: unknown, context?: string): AppError {
     logger.error(`Error in ${context || 'unknown context'}`, error);
+
+    if (import.meta.env.PROD && error instanceof Error) {
+      captureError(error, { context });
+    }
 
     if (error && typeof error === 'object') {
       if ('message' in error && typeof error.message === 'string') {
