@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useBehavioralAnalytics } from '@/hooks/useBehavioralAnalytics';
+import { ErrorAlert } from '@/components/ui/error-alert';
+import { SuccessAlert } from '@/components/ui/success-alert';
 
 interface AuthFormLayoutProps {
   isSignUp: boolean;
@@ -42,26 +44,8 @@ export function AuthFormLayout({
           </CardHeader>
 
           <CardContent>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2"
-              >
-                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive">{error}</p>
-              </motion.div>
-            )}
-
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg"
-              >
-                <p className="text-sm text-green-800">{success}</p>
-              </motion.div>
-            )}
+            <ErrorAlert message={error} className="mb-4" />
+            <SuccessAlert message={success} className="mb-4" />
 
             {process.env.NODE_ENV === 'development' && botScore && (
               <motion.div
