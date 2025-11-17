@@ -488,8 +488,62 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
+      auth_attempts_summary: {
+        Row: {
+          attempt_type: string | null
+          created_at: string | null
+          email_masked: string | null
+          id: string | null
+          ip_masked: string | null
+          success: boolean | null
+          user_agent_short: string | null
+        }
+        Insert: {
+          attempt_type?: string | null
+          created_at?: string | null
+          email_masked?: never
+          id?: string | null
+          ip_masked?: never
+          success?: boolean | null
+          user_agent_short?: never
+        }
+        Update: {
+          attempt_type?: string | null
+          created_at?: string | null
+          email_masked?: never
+          id?: string | null
+          ip_masked?: never
+          success?: boolean | null
+          user_agent_short?: never
+        }
+        Relationships: []
+      }
       public_share_cards: {
         Row: {
           blind_spot_count: number | null
@@ -508,7 +562,7 @@ export type Database = {
           id?: string | null
           scan_id?: string | null
           slug?: string | null
-          title?: never
+          title?: string | null
           view_count?: number | null
         }
         Update: {
@@ -518,7 +572,7 @@ export type Database = {
           id?: string | null
           scan_id?: string | null
           slug?: string | null
-          title?: never
+          title?: string | null
           view_count?: number | null
         }
         Relationships: [
@@ -557,9 +611,16 @@ export type Database = {
     }
     Functions: {
       cleanup_old_auth_attempts: { Args: never; Returns: undefined }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -686,6 +747,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
