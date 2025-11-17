@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { db } from '@/lib/database';
+import { useProfile } from '@/hooks/useProfile';
 import { logger } from '@/utils/logger';
 import { ErrorHandler } from '@/utils/errorHandler';
 
@@ -36,8 +36,15 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const {
+    profile,
+    loadProfile,
+    updateProfile: updateProfileData,
+    refreshProfile: refreshProfileData,
+    clearProfile
+  } = useProfile()
 
   useEffect(() => {
     // Get initial session
@@ -46,54 +53,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(session?.user ?? null)
       if (session?.user) {
         loadProfile(session.user.id)
-      } else {
-        setLoading(false)
       }
+      setLoading(false)
     })
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Auth state management - production ready
+      (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          await loadProfile(session.user.id)
+          setTimeout(() => {
+            loadProfile(session.user.id)
+          }, 0)
         } else {
-          setProfile(null)
-          setLoading(false)
+          clearProfile()
         }
 
-        // Handle different auth events
         if (event === 'SIGNED_OUT') {
-          setProfile(null)
-        }
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          // User successfully signed in - production ready
+          clearProfile()
         }
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [])
-
-  const loadProfile = async (userId: string) => {
-    try {
-      const { data, error } = await db.getProfile(userId);
-      
-      if (error && error.code !== 'PGRST116') {
-        logger.error('Error loading profile', error, { userId });
-      } else {
-        setProfile(data);
-      }
-    } catch (error) {
-      logger.error('Unexpected error loading profile', error, { userId });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadProfile, clearProfile])
 
   const signUp = async (email: string, password: string, metadata = {}) => {
     setLoading(true);
@@ -183,29 +168,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const updateProfile = async (updates: any) => {
-    if (!user) {
-      return { error: new Error('No user logged in') }
-    }
-
-    try {
-      const { data, error } = await db.updateProfile(user.id, updates)
-      
-      if (error) {
-        console.error('Profile update error:', error)
-        return { error }
-      }
-
-      setProfile(data)
-      return { error: null }
-    } catch (error) {
-      console.error('Unexpected profile update error:', error)
-      return { error }
-    }
+    return await updateProfileData(user, updates)
   }
 
   const refreshProfile = async () => {
-    if (!user) return
-    await loadProfile(user.id)
+    await refreshProfileData(user)
   }
 
   const resetPassword = async (email: string) => {
